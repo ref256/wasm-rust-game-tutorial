@@ -41,6 +41,11 @@ pub struct Renderer {
     context: CanvasRenderingContext2d,
 }
 
+pub struct Image {
+    element: HtmlImageElement,
+    position: Point,
+}
+
 pub struct KeyState {
     pressed_keys: HashMap<String, web_sys::KeyboardEvent>,
 }
@@ -65,6 +70,23 @@ impl KeyState {
     }
 }
 
+impl Image {
+    pub fn new(element: HtmlImageElement, position: Point) -> Self {
+        Self { element, position }
+    }
+
+    pub fn draw(&self, renderer: &Renderer) {
+        renderer.draw_entire_image(&self.element, &self.position);
+
+        renderer.draw_rect(&Rect {
+            x: self.position.x.into(),
+            y:  self.position.y.into(),
+            width: (self.element.width() as f32).into(),
+            height: (self.element.height() as f32).into(),
+        })
+    }
+}
+
 impl Renderer {
     pub fn clear(&self, rect: &Rect) {
         self.context.clear_rect(
@@ -74,6 +96,7 @@ impl Renderer {
             rect.height.into(),
         );
     }
+
     pub fn draw_image(&self, image: &HtmlImageElement, frame: &Rect, destination: &Rect) {
         self.context
             .draw_image_with_html_image_element_and_sw_and_sh_and_dx_and_dy_and_dw_and_dh(
@@ -88,6 +111,24 @@ impl Renderer {
                 destination.height.into(),
             )
             .expect("Drawing is throwing exceptions! Unrecoverable error.");
+    }
+
+    pub fn draw_entire_image(&self, image: &HtmlImageElement, position: &Point) {
+        self.context
+            .draw_image_with_html_image_element(image, position.x.into(), position.y.into())
+            .expect("Drawing is throwing expections! Unrecoverable error.");
+    }
+
+    pub fn draw_rect(&self, bounding_box: &Rect) {
+        self.context.set_stroke_style(&JsValue::from_str("#FF0000"));
+        self.context.begin_path();
+        self.context.rect(
+            bounding_box.x.into(),
+            bounding_box.y.into(),
+            bounding_box.width.into(),
+            bounding_box.height.into(),
+        );
+        self.context.stroke();
     }
 }
 
