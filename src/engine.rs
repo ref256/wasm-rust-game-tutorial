@@ -31,10 +31,10 @@ pub struct Point {
 }
 
 pub struct Rect {
-    pub x: f32,
-    pub y: f32,
-    pub width: f32,
-    pub height: f32,
+    pub x: i16,
+    pub y: i16,
+    pub width: i16,
+    pub height: i16,
 }
 
 pub struct Renderer {
@@ -44,7 +44,7 @@ pub struct Renderer {
 pub struct Image {
     element: HtmlImageElement,
     position: Point,
-    destination_box: Rect,
+    // destination_box: Rect,
     bounding_box: Rect,
 }
 
@@ -83,27 +83,45 @@ impl KeyState {
 
 impl Image {
     pub fn new(element: HtmlImageElement, position: Point) -> Self {
-        let destination_box = Rect {
-            x: position.x.into(),
-            y: position.y.into(),
-            width: element.width() as f32,
-            height: element.height() as f32,
-        };
+        // let destination_box = Rect {
+        //     x: position.x.into(),
+        //     y: position.y.into(),
+        //     width: element.width() as i16,
+        //     height: element.height() as i16,
+        // };
         let bounding_box = Rect {
             x: position.x.into(),
             y: position.y.into(),
-            width: element.width() as f32,
-            height: element.height() as f32,
+            width: element.width() as i16,
+            height: element.height() as i16,
         };
-        Self { element, position, destination_box, bounding_box }
+        Self {
+            element,
+            position,
+            // destination_box,
+            bounding_box,
+        }
     }
 
-    pub fn destination_box(&self) -> &Rect {
-        &&self.destination_box
-    }
+    // pub fn destination_box(&self) -> &Rect {
+    //     &&self.destination_box
+    // }
 
     pub fn bounding_box(&self) -> &Rect {
         &&self.bounding_box
+    }
+
+    pub fn move_horizontally(&mut self, distance: i16) {
+        self.set_x(self.position.x + distance);
+    }
+
+    pub fn set_x(&mut self, x: i16) {
+        self.bounding_box.x = x;
+        self.position.x = x;
+    }
+
+    pub fn right(&self) -> i16 {
+        self.bounding_box.x + self.bounding_box.width
     }
 
     pub fn draw(&self, renderer: &Renderer) {

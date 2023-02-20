@@ -18,10 +18,10 @@ pub struct Sheet {
 
 #[derive(Deserialize, Clone)]
 pub struct SheetRect {
-    x: u16,
-    y: u16,
-    w: u16,
-    h: u16,
+    x: i16,
+    y: i16,
+    w: i16,
+    h: i16,
 }
 
 #[derive(Deserialize, Clone)]
@@ -38,7 +38,7 @@ pub enum WalkTheDog {
 
 pub struct Walk {
     boy: RedHatBoy,
-    background: Image,
+    backgrounds: [Image; 2],
     stone: Image,
     platform: Platform,
 }
@@ -58,6 +58,12 @@ struct Platform {
 impl WalkTheDog {
     pub fn new() -> Self {
         WalkTheDog::Loading
+    }
+}
+
+impl Walk {
+    fn velocity(&self) -> i16 {
+        -self.boy.walking_speed()
     }
 }
 
@@ -86,17 +92,17 @@ impl RedHatBoy {
         let sprite = self.current_sprite().expect("Cell not found");
 
         Rect {
-            x: (self.state_machine.context().position.x + sprite.sprite_source_size.x as i16).into(),
-            y: (self.state_machine.context().position.y + sprite.sprite_source_size.y as i16).into(),
-            width: sprite.frame.w.into(),
-            height: sprite.frame.h.into(),
+            x: self.state_machine.context().position.x + sprite.sprite_source_size.x,
+            y: self.state_machine.context().position.y + sprite.sprite_source_size.y,
+            width: sprite.frame.w,
+            height: sprite.frame.h,
         }
     }
 
     fn bounding_box(&self) -> Rect {
-        const X_OFFSET: f32 = 18.0;
-        const Y_OFFSET: f32 = 14.0;
-        const WIDTH_OFFSET: f32 = 28.0;
+        const X_OFFSET: i16 = 18;
+        const Y_OFFSET: i16 = 14;
+        const WIDTH_OFFSET: i16 = 28;
         let mut bounding_box = self.destination_box();
         bounding_box.x += X_OFFSET;
         bounding_box.width -= WIDTH_OFFSET;
@@ -113,16 +119,20 @@ impl RedHatBoy {
         self.state_machine.context().velocity.y
     }
 
+    fn walking_speed(&self) -> i16 {
+        self.state_machine.context().velocity.x
+    }
+
     fn draw(&self, renderer: &Renderer) {
         let sprite = self.current_sprite().expect("Cell not found");
 
         renderer.draw_image(
             &self.image,
             &Rect {
-                x: sprite.frame.x.into(),
-                y: sprite.frame.y.into(),
-                width: sprite.frame.w.into(),
-                height: sprite.frame.h.into(),
+                x: sprite.frame.x,
+                y: sprite.frame.y,
+                width: sprite.frame.w,
+                height: sprite.frame.h,
             },
             &self.destination_box(),
         );
@@ -150,7 +160,7 @@ impl RedHatBoy {
         self.state_machine = self.state_machine.transition(Event::KnockOut);
     }
 
-    fn land_on(&mut self, position: f32) {
+    fn land_on(&mut self, position: i16) {
         self.state_machine = self.state_machine.transition(Event::Land(position));
     }
 }
@@ -180,8 +190,8 @@ impl Platform {
     }
 
     fn bounding_boxes(&self) -> Vec<Rect> {
-        const X_OFFSET: f32 = 60.0;
-        const END_HEIGHT: f32 = 54.0;
+        const X_OFFSET: i16 = 60;
+        const END_HEIGHT: i16 = 54;
         let destination_box = self.destination_box();
         let bounding_box_one = Rect {
             x: destination_box.x,
@@ -193,7 +203,7 @@ impl Platform {
         let bounding_box_two = Rect {
             x: destination_box.x + X_OFFSET,
             y: destination_box.y,
-            width: destination_box.width - X_OFFSET * 2.0,
+            width: destination_box.width - X_OFFSET * 2,
             height: destination_box.height,
         };
 
@@ -257,9 +267,13 @@ impl Game for WalkTheDog {
                     },
                 );
         
+                let background_width = background.width() as i16;
                 Ok(Box::new(WalkTheDog::Loaded(Walk {
                     boy: rhb,
-                    background: Image::new(background, Point { x: 0, y: 0 }),
+                    backgrounds: [
+                        Image::new(background.clone(), Point { x: 0, y: 0 }),
+                        Image::new(background, Point { x: background_width, y: 0}),
+                    ],
                     stone: Image::new(stone, Point { x: 150, y: 546 }),
                     platform,
                 })))
@@ -288,6 +302,21 @@ impl Game for WalkTheDog {
     
             walk.boy.update();
 
+            walk.platform.position.x += walk.velocity();
+            walk.stone.move_horizontally(walk.velocity());
+
+            let velocity = walk.velocity();
+            let [first_background, second_background] = &mut walk.backgrounds;
+            first_background.move_horizontally(velocity);
+            second_background.move_horizontally(velocity);
+
+            if first_background.right() < 0 {
+                first_background.set_x(second_background.right());
+            }
+            if second_background.right() < 0 {
+                second_background.set_x(first_background.right());
+            }
+
             for bounding_box in &walk.platform.bounding_boxes() {
                 if walk
                     .boy
@@ -314,14 +343,16 @@ impl Game for WalkTheDog {
 
     fn draw(&self, renderer: &Renderer) {
         renderer.clear(&Rect {
-            x: 0.0,
-            y: 0.0,
-            width: 600.0,
-            height: 600.0,
+            x: 0,
+            y: 0,
+            width: 600,
+            height: 600,
         });
 
         if let WalkTheDog::Loaded(walk) = self {
-            walk.background.draw(renderer);
+            walk.backgrounds.iter().for_each(|background| {
+                background.draw(renderer);
+            });
             walk.boy.draw(renderer);
             walk.stone.draw(renderer);
             walk.platform.draw(renderer);

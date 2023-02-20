@@ -72,7 +72,7 @@ mod red_hat_boy_states {
                 self.frame = 0;
             }
 
-            self.position.x += self.velocity.x;
+            // self.position.x += self.velocity.x;
             self.position.y += self.velocity.y;
 
             if self.position.y > FLOOR {
@@ -164,9 +164,9 @@ mod red_hat_boy_states {
             }
         }
 
-        pub fn land_on(self, position: f32) -> RedHatBoyState<Running> {
+        pub fn land_on(self, position: i16) -> RedHatBoyState<Running> {
             RedHatBoyState {
-                context: self.context.set_on(position as i16),
+                context: self.context.set_on(position),
                 _state: Running {},
             }
         }
@@ -201,9 +201,9 @@ mod red_hat_boy_states {
             }
         }
 
-        pub fn land_on(self, position: f32) -> RedHatBoyState<Sliding> {
+        pub fn land_on(self, position: i16) -> RedHatBoyState<Sliding> {
             RedHatBoyState {
-                context: self.context.set_on(position as i16),
+                context: self.context.set_on(position),
                 _state: Sliding {},
             }
         }
@@ -236,9 +236,9 @@ mod red_hat_boy_states {
             }
         }
 
-        pub fn land_on(self, position: f32) -> RedHatBoyState<Running> {
+        pub fn land_on(self, position: i16) -> RedHatBoyState<Running> {
             RedHatBoyState {
-                context: self.context.reset_frame().set_on(position as i16),
+                context: self.context.reset_frame().set_on(position),
                 _state: Running {},
             }
         }
@@ -311,7 +311,7 @@ pub enum Event {
     Slide,
     Jump,
     KnockOut,
-    Land(f32),
+    Land(i16),
     Update,
 }
 
