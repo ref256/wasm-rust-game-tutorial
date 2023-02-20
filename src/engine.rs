@@ -44,10 +44,21 @@ pub struct Renderer {
 pub struct Image {
     element: HtmlImageElement,
     position: Point,
+    destination_box: Rect,
+    bounding_box: Rect,
 }
 
 pub struct KeyState {
     pressed_keys: HashMap<String, web_sys::KeyboardEvent>,
+}
+
+impl Rect {
+    pub fn intersects(&self, rect: &Rect) -> bool {
+        self.x < (rect.x + rect.width)
+        && self.x + self.width > rect.x
+        && self.y < (rect.y + rect.height)
+        && self.y + self.height > rect.y
+    }
 }
 
 impl KeyState {
@@ -72,18 +83,33 @@ impl KeyState {
 
 impl Image {
     pub fn new(element: HtmlImageElement, position: Point) -> Self {
-        Self { element, position }
+        let destination_box = Rect {
+            x: position.x.into(),
+            y: position.y.into(),
+            width: element.width() as f32,
+            height: element.height() as f32,
+        };
+        let bounding_box = Rect {
+            x: position.x.into(),
+            y: position.y.into(),
+            width: element.width() as f32,
+            height: element.height() as f32,
+        };
+        Self { element, position, destination_box, bounding_box }
+    }
+
+    pub fn destination_box(&self) -> &Rect {
+        &&self.destination_box
+    }
+
+    pub fn bounding_box(&self) -> &Rect {
+        &&self.bounding_box
     }
 
     pub fn draw(&self, renderer: &Renderer) {
         renderer.draw_entire_image(&self.element, &self.position);
 
-        renderer.draw_rect(&Rect {
-            x: self.position.x.into(),
-            y:  self.position.y.into(),
-            width: (self.element.width() as f32).into(),
-            height: (self.element.height() as f32).into(),
-        })
+        renderer.draw_rect(self.bounding_box())
     }
 }
 
