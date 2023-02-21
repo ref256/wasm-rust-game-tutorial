@@ -33,8 +33,8 @@ mod red_hat_boy_states {
         pub frame: u8,
         pub position: Point,
         pub velocity: Point,
-        audio: Audio,
-        jump_sound: Sound,
+        pub audio: Audio,
+        pub jump_sound: Sound,
     }
 
     #[derive(Copy, Clone)]
@@ -378,6 +378,10 @@ impl RedHatBoyStateMachine {
 
     pub fn update(self) -> Self {
         self.transition(Event::Update)
+    }
+
+    pub fn knocked_out(&self) -> bool {
+        matches!(self, RedHatBoyStateMachine::KnockedOut(_))
     }
 }
 
