@@ -1,5 +1,5 @@
 use wasm_bindgen_test::{wasm_bindgen_test_configure, wasm_bindgen_test};
-use futures::prelude::*;
+use std::future::Future;
 use wasm_bindgen::JsValue;
 use wasm_bindgen_futures::JsFuture;
 

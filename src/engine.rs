@@ -1,14 +1,14 @@
 use anyhow::{anyhow, Result };
 use async_trait::async_trait;
 use futures::channel::{oneshot::channel, mpsc::{UnboundedReceiver, unbounded}};
-use web_sys::{HtmlImageElement, CanvasRenderingContext2d};
+use web_sys::{HtmlImageElement, CanvasRenderingContext2d, AudioContext, AudioBuffer};
 use wasm_bindgen::prelude::*;
 use serde::Deserialize;
 use std::{cell::RefCell, collections::HashMap};
 use std::rc::Rc;
 use std::sync::Mutex;
 
-use crate::{browser::{self, LoopClosure}};
+use crate::{browser::{self, LoopClosure}, sound};
 
 #[async_trait(?Send)]
 pub trait Game {
@@ -75,6 +75,16 @@ pub struct SpriteSheet {
 
 pub struct KeyState {
     pressed_keys: HashMap<String, web_sys::KeyboardEvent>,
+}
+
+#[derive(Clone)]
+pub struct Audio {
+    context: AudioContext,
+}
+
+#[derive(Clone)]
+pub struct Sound {
+    buffer: AudioBuffer,
 }
 
 impl Rect {
@@ -149,6 +159,32 @@ impl KeyState {
 
     fn set_released(&mut self, code: &str) {
         self.pressed_keys.remove(code.into());
+    }
+}
+
+impl Audio {
+    pub fn new() -> Result<Self> {
+        Ok(Audio {
+            context: sound::create_audio_context()?,
+        })
+    }
+
+    pub async fn load_sound(&self, filename: &str) -> Result<Sound> {
+        let array_buffer = browser::fetch_array_buffer(filename).await?;
+
+        let audio_buffer = sound::decode_audio_data(&self.context, &array_buffer).await?;
+
+        Ok(Sound {
+            buffer: audio_buffer,
+        })
+    }
+
+    pub fn play_sound(&self, sound: &Sound) -> Result<()> {
+        sound::play_sound(&self.context, &sound.buffer, sound::LOOPING::NO)
+    }
+
+    pub fn play_looping_sound(&self, sound: &Sound) -> Result<()> {
+        sound::play_sound(&self.context, &sound.buffer, sound::LOOPING::YES)
     }
 }
 

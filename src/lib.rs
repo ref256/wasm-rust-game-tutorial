@@ -4,6 +4,7 @@ mod engine;
 mod game;
 mod state_machine;
 mod segments;
+mod sound;
 
 use engine::GameLoop;
 use game::WalkTheDog;
