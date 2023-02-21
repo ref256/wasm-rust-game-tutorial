@@ -3,6 +3,7 @@ mod browser;
 mod engine;
 mod game;
 mod state_machine;
+mod segments;
 
 use engine::GameLoop;
 use game::WalkTheDog;

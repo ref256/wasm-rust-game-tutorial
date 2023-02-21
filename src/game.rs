@@ -1,15 +1,15 @@
 use std::rc::Rc;
+use rand::prelude::*;
 
-use crate::{engine::{self, Game, Renderer, Rect, KeyState, Point, Image, Sheet, Cell, SpriteSheet}, browser};
+use crate::{engine::{self, Game, Renderer, Rect, KeyState, Point, Image, Sheet, Cell, SpriteSheet}, browser, segments::{stone_and_platform, platform_and_stone}};
 use crate::state_machine::*;
 use anyhow::{anyhow, Result};
 use async_trait::async_trait;
 use web_sys::HtmlImageElement;
 
 pub const HEIGHT: i16 = 600;
-const LOW_PLATFORM: i16 = 420;
-const HIGH_PLATFORM: i16 = 375;
-const FIRST_PLATFORM: i16 = 370;
+const TIMELINE_MINIMUM: i16 = 1000;
+const OBSTACLE_BUFFER: i16 = 20;
 
 pub enum WalkTheDog {
     Loading,
@@ -21,6 +21,8 @@ pub struct Walk {
     backgrounds: [Image; 2],
     obstacles: Vec<Box<dyn Obstacle>>,
     obstacle_sheet: Rc<SpriteSheet>,
+    stone: HtmlImageElement,
+    timeline: i16,
 }
 
 pub struct RedHatBoy {
@@ -29,14 +31,14 @@ pub struct RedHatBoy {
     image: HtmlImageElement,
 }
 
-struct Platform {
+pub struct Platform {
     sheet: Rc<SpriteSheet>,
     bounding_boxes: Vec<Rect>,
     sprites: Vec<Cell>,
     position: Point,
 }
 
-struct Barrier {
+pub struct Barrier {
     image: Image,
 }
 
@@ -56,6 +58,28 @@ impl WalkTheDog {
 impl Walk {
     fn velocity(&self) -> i16 {
         -self.boy.walking_speed()
+    }
+
+    fn generate_next_segment(&mut self) {
+        let mut rng = thread_rng();
+        let next_segment = rng.gen_range(0..2);
+
+        let mut next_obstacles = match next_segment {
+            0 => stone_and_platform(
+                self.stone.clone(),
+                self.obstacle_sheet.clone(),
+                self.timeline + OBSTACLE_BUFFER,
+            ),
+            1 => platform_and_stone(
+                self.stone.clone(),
+                self.obstacle_sheet.clone(),
+                self.timeline + OBSTACLE_BUFFER,
+            ),
+            _ => vec![],
+        };
+
+        self.timeline = rightmost(&next_obstacles);
+        self.obstacles.append(&mut next_obstacles);
     }
 }
 
@@ -236,7 +260,7 @@ impl Obstacle for Barrier {
 }
 
 impl Platform {
-    fn new(
+    pub fn new(
         sheet: Rc<SpriteSheet>,
         position: Point,
         sprite_names: &[&str],
@@ -267,50 +291,9 @@ impl Platform {
         }
     }
 
-    // fn destination_box(&self) -> Rect {
-    //     let platform = self
-    //         .sheet
-    //         .cell("13.png")
-    //         .expect("13.png does not exist");
-
-    //     Rect::new(
-    //         self.position,
-    //         (platform.frame.w * 3).into(),
-    //         platform.frame.h.into(),
-    //     )
-    // }
-
     fn bounding_boxes(&self) -> &Vec<Rect> {
         &self.bounding_boxes
     }
-
-    // fn bounding_boxes(&self) -> Vec<Rect> {
-    //     const X_OFFSET: i16 = 60;
-    //     const END_HEIGHT: i16 = 54;
-    //     let destination_box = self.destination_box();
-    //     let bounding_box_one = Rect::new_from_x_y(
-    //         destination_box.x(),
-    //         destination_box.y(),
-    //         X_OFFSET,
-    //         END_HEIGHT,
-    //     );
-
-    //     let bounding_box_two = Rect::new_from_x_y(
-    //         destination_box.x() + X_OFFSET,
-    //         destination_box.y(),
-    //         destination_box.width - X_OFFSET * 2,
-    //         destination_box.height,
-    //     );
-
-    //     let bounding_box_three = Rect::new_from_x_y(
-    //         destination_box.x() + destination_box.width - X_OFFSET,
-    //         destination_box.y(),
-    //         X_OFFSET,
-    //         END_HEIGHT,
-    //     );
-
-    //     vec![bounding_box_one, bounding_box_two, bounding_box_three]
-    // }
 }
 
 impl Barrier {
@@ -340,32 +323,21 @@ impl Game for WalkTheDog {
                     engine::load_image("tiles.png").await?,
                 ));
 
-                let platform = Platform::new(
-                    sprite_sheet.clone(),
-                    Point {
-                        x: FIRST_PLATFORM,
-                        y: LOW_PLATFORM,
-                    },
-                    &["13.png", "14.png", "15.png"],
-                    &[
-                        Rect::new_from_x_y(0, 0, 60, 54),
-                        Rect::new_from_x_y(60, 0, 384 - (60 * 2), 93),
-                        Rect::new_from_x_y(384 - 60, 0, 60, 54),
-                    ]
-                );
-        
                 let background_width = background.width() as i16;
+
+                let starting_obstacles = stone_and_platform(stone.clone(), sprite_sheet.clone(), 0);
+                let timeline = rightmost(&starting_obstacles);
+
                 Ok(Box::new(WalkTheDog::Loaded(Walk {
                     boy: rhb,
                     backgrounds: [
                         Image::new(background.clone(), Point { x: 0, y: 0 }),
                         Image::new(background, Point { x: background_width, y: 0}),
                     ],
-                    obstacles: vec![
-                        Box::new(Barrier::new(Image::new(stone, Point { x: 150, y: 546 }))),
-                        Box::new(platform),
-                    ],
+                    obstacles: starting_obstacles,
                     obstacle_sheet: sprite_sheet,
+                    stone,
+                    timeline,
                 })))
             },
             WalkTheDog::Loaded(_) => Err(anyhow!("Error: Game is already initialized!")),
@@ -412,6 +384,12 @@ impl Game for WalkTheDog {
                 obstacle.move_horizontally(velocity);
                 obstacle.check_intersection(&mut walk.boy);
             });
+
+            if walk.timeline < TIMELINE_MINIMUM {
+                walk.generate_next_segment();
+            } else {
+                walk.timeline += velocity;
+            }
         }
     }
 
@@ -428,4 +406,12 @@ impl Game for WalkTheDog {
             })
         }
     }
+}
+
+fn rightmost(obstacle_list: &Vec<Box<dyn Obstacle>>) -> i16 {
+    obstacle_list
+        .iter()
+        .map(|obstacle| obstacle.right())
+        .max_by(|x, y| x.cmp(&y))
+        .unwrap_or(0)
 }
