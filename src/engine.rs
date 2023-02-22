@@ -231,7 +231,7 @@ impl Image {
     pub fn draw(&self, renderer: &Renderer) {
         renderer.draw_entire_image(&self.element, &self.bounding_box.position);
 
-        renderer.draw_rect(self.bounding_box())
+        // renderer.draw_rect(self.bounding_box())
     }
 }
 
@@ -267,6 +267,7 @@ impl Renderer {
             .expect("Drawing is throwing expections! Unrecoverable error.");
     }
 
+    #[allow(dead_code)]
     pub fn draw_rect(&self, bounding_box: &Rect) {
         self.context.set_stroke_style(&JsValue::from_str("#FF0000"));
         self.context.begin_path();
