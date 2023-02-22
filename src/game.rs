@@ -150,14 +150,14 @@ impl WalkTheDogState<Walking> {
     }
 
     fn update(mut self, keystate: &KeyState) -> WalkingEndState {
-        self.walk.boy.update();
-
         if keystate.is_pressed("ArrowDown") {
             self.walk.boy.slide();
         }
         if keystate.is_pressed("Space") {
             self.walk.boy.jump();
         }
+
+        self.walk.boy.update();
 
         let walking_speed = self.walk.velocity();
 
